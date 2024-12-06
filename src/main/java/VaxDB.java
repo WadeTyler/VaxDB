@@ -1,29 +1,33 @@
 import lib.utils.Colors;
 import lib.utils.ErrorMessage;
+import lib.utils.JSON;
 import lib.utils.SuccessMessage;
 import models.Attribute;
 import models.Model;
-import org.w3c.dom.UserDataHandler;
 
-import java.awt.*;
 import java.io.*;
-import java.lang.reflect.Array;
 import java.lang.reflect.Field;
-import java.text.SimpleDateFormat;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Scanner;
 import java.util.Stack;
 
-public class Application {
+public class VaxDB {
 
     // Files
     public static File modelsFile;
     public static ArrayList<File> tableFiles = new ArrayList<>();
+    public static String dir_tables = "src/main/java/tables";
+    public static String dir_models = "src/main/java/models/models.txt";
 
     // Data Structures
-    public static ArrayList<Model> models = new ArrayList<>();
+    public static ArrayList<Model> models2 = new ArrayList<>();
+    public static HashMap<String, Model> models = new HashMap<>();      // <modelName, model>
     public static HashMap<String, Table> tables = new HashMap<>();      // <tableName, table>
 
     public static void main(String[] args) {
@@ -31,8 +35,13 @@ public class Application {
             // Retrieve the modelsFile then load all models.
             loadModelsFile();
             loadAllModels();
-
             loadAllTables();
+
+            removeEntry("history_books", "2");
+
+            System.out.println(tables.get("history_books").selectAll());
+
+
 
         } catch (Exception e) {
             System.out.println(new ErrorMessage("An error occurred: " + e.getMessage()));
@@ -50,7 +59,7 @@ public class Application {
     // Load models file
     public static void loadModelsFile() {
         try {
-            File modelsFileObj = new File("src/main/java/models/models.txt");
+            File modelsFileObj = new File(dir_models);
 
             if (modelsFileObj.createNewFile()) {
                 System.out.println(getTimestamp() + "Models file created: " + modelsFileObj.getName());
@@ -142,8 +151,20 @@ public class Application {
                 System.out.print("\r" + getTimestamp() + "Loading Models: " + Math.floor(((counter / (double) modelsFileLength) * 1000)) + "%     ");
             }
 
+
+            // Assign in hashmap
+            for (Model model : modelsList) {
+                models.put(model.name, model);
+            }
+
             System.out.println("\n" + getTimestamp() + new SuccessMessage("Models Done Loading."));
-            models = modelsList;
+            System.out.println(getTimestamp() + "---------- MODELS ----------");
+
+            for (String key : models.keySet()) {
+                System.out.println(getTimestamp() + key);
+            }
+
+            System.out.println(getTimestamp() + "----------------------------");
 
         } catch (Exception e) {
             System.out.println(getTimestamp() + Colors.ANSI_RED + "An error occurred loading all models: " + e.getMessage() + Colors.ANSI_RESET);
@@ -188,7 +209,7 @@ public class Application {
             writer.close();
 
             // Add model to models list
-            models.add(model);
+            models.put(model.name, model);
         } catch (Exception e) {
             System.out.println(getTimestamp() + new ErrorMessage("An error occurred while creating a new model: " + e.getMessage(), Colors.ANSI_YELLOW));
         }
@@ -196,16 +217,7 @@ public class Application {
 
     // Returns true if the model exists, false if not
     public static boolean checkModelExists(String modelName) {
-
-        // Check each model in models arraylist and compare names.
-        for (Model model : models) {
-            if (model.name.equals(modelName)) {
-                return true;
-            }
-        }
-
-        return false;
-
+        return models.get(modelName) != null;
     }
 
     // Check if the field has a getter method
@@ -222,14 +234,8 @@ public class Application {
     }
 
     // GetModelFromName
-    public static Model getModelFromName(String modelName) throws Exception {
-        for (Model model : models) {
-            if (model.name.equals(modelName)) {
-                return model;
-            }
-        }
-
-        throw new Exception("Error getting model from name: No model with the name \"" + modelName + "\" found.");
+    public static Model getModelFromName(String modelName) {
+        return models.get(modelName);
     }
 
 
@@ -251,7 +257,7 @@ public class Application {
             // Create the file
             File tableFile = new File("src/main/java/tables/" + tableName + ".table.txt");
             if (tableFile.createNewFile()) {
-                System.out.println("Table created: " + tableFile.getAbsolutePath());
+                System.out.println(getTimestamp() + new SuccessMessage("Table Created with the name: " + tableName));
             } else {
                 System.out.println(getTimestamp() + new ErrorMessage("A table with the name \"" + tableName + "\" already exists. No table was created."));
                 return;
@@ -270,15 +276,13 @@ public class Application {
         }
     }
 
-
     // Load Tables
     public static void loadAllTables() {
         try {
-
             System.out.println(getTimestamp() + "Loading Tables...");
 
             // Iterate over all table files
-            File folder = new File("src/main/java/tables");
+            File folder = new File(dir_tables);
             File[] listOfFiles = folder.listFiles();
 
             for (int i = 0; i < listOfFiles.length; i++) {
@@ -301,6 +305,37 @@ public class Application {
                 Table table = new Table(tableName, model);
 
                 // Add data from file to table.data
+                ArrayList<Object> objects = new ArrayList<>();
+                Class<?> clazz = Class.forName(model.name);
+                while (scanner.hasNextLine()) {
+
+                    String line = scanner.nextLine();
+                    if (line.isEmpty()) continue;
+
+                    String key = line.split(": ", 2)[0].trim();
+
+                    String jsonPart = line.split(": ", 2)[1].trim();
+                    jsonPart = jsonPart.substring(1, jsonPart.length() - 1);
+
+                    String[] keyValuePairs = jsonPart.split(", ");
+                    Object obj = clazz.getDeclaredConstructor().newInstance();
+
+                    for (String pair : keyValuePairs) {
+                        String[] keyValue = pair.split(":");
+                        String keyField = keyValue[0].trim().replaceAll("\"", "");
+                        String value = keyValue[1].trim().replaceAll("\"", "");
+
+                        // Set Values
+                        String setterName = "set" + Character.toUpperCase(keyField.charAt(0)) + keyField.substring(1);
+                        Method setter = clazz.getMethod(setterName, String.class);
+                        setter.invoke(obj, value);
+
+
+                    }
+
+                    table.addEntry(key, obj);
+
+                }
 
                 tables.put(tableName, table);
 
@@ -308,6 +343,13 @@ public class Application {
             }
 
             System.out.println(getTimestamp() + new SuccessMessage("Tables Done Loading."));
+            System.out.println(getTimestamp() + "---------- TABLES ----------");
+
+            for (String key : tables.keySet()) {
+                System.out.println(getTimestamp() + "Table Name: " + tables.get(key).getTableName() + " - Model: " + tables.get(key).getModel().name);
+            }
+
+            System.out.println(getTimestamp() + "----------------------------");
 
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -323,15 +365,81 @@ public class Application {
         return false;
     }
 
-
-
-
-    public static void createTable(Model model) {
+    // Create Entry to a Table
+    public static void createEntry(String tableName, String key, Object obj) {
         try {
-            File folder = new File("src/main/java/tables");
-            File[] listOfFiles = folder.listFiles();
-        } catch (Exception e) {
 
+            // Check key value
+            if (key.isEmpty()) {
+                throw new Exception("Empty key value not allowed.");
+            }
+
+            if (key.contains(" ")) {
+                throw new Exception("Space(s) not allowed in key value.");
+            }
+
+            // Check if table exists
+            if (!checkTableFileExists(tableName)) {
+                throw new Exception("No table with the name \"" + tableName + "\" exists.");
+            }
+
+            // Add data to table
+            Table table = tables.get(tableName);
+            table.addEntry(key, obj);
+
+            // Add data to tablefile
+            File tableFile = new File(dir_tables + "/" + tableName + ".table.txt");
+
+
+            System.out.println(JSON.toJSON(obj));
+
+            FileWriter writer = new FileWriter(dir_tables + "/" + tableName + ".table.txt", true);
+
+            writer.write("\n" + key + ": " + JSON.toJSON(obj));
+            writer.close();
+
+            System.out.println(getTimestamp() + new SuccessMessage("New data entry added to " + tableName + " with key: \"" + key + "\""));
+        } catch (Exception e) {
+            System.out.println(getTimestamp() + new ErrorMessage("An error occurred while creating a data entry: " + e.getMessage()));
+        }
+    }
+
+
+    // Remove Entry from a table
+    public static void removeEntry(String tableName, String key) {
+        try {
+
+            System.out.println("Attempting to remove data entry with the key \"" + key + "\"");
+            // Remove from table structure
+            Table table = tables.get(tableName);
+
+            if (table == null) {
+                throw new Exception("No table with the name \"" + tableName + "\" exists.");
+            }
+
+            table.removeEntry(key);
+
+
+            // Rewrite file without the entry
+            String filePath = dir_tables + "/" + tableName + ".table.txt";
+            Path path = Paths.get(filePath);
+
+            BufferedReader reader = new BufferedReader(new FileReader(dir_tables + "/" + tableName + ".table.txt"));
+            StringBuilder newFileContent = new StringBuilder();
+
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                if (line.split(": ")[0].trim().equals(key)) continue;
+                newFileContent.append(line).append(System.lineSeparator());
+            }
+            reader.close();
+
+            Files.write(path, newFileContent.toString().getBytes());
+            System.out.println(getTimestamp() + new SuccessMessage("Data Entry Removed"));
+
+        } catch (Exception e) {
+            System.out.println(getTimestamp() + new ErrorMessage("An exception occurred while removing an entry from " + tableName + ": " + e.getMessage(), Colors.ANSI_YELLOW));
         }
     }
 

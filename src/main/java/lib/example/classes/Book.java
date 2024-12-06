@@ -1,3 +1,5 @@
+package lib.example.classes;
+
 public class Book {
 
     private String title;
@@ -10,6 +12,8 @@ public class Book {
         this.category = category;
     }
 
+    public Book() {}
+
     public String getTitle() {
         return title;
     }
@@ -20,5 +24,17 @@ public class Book {
 
     public String getCategory() {
         return category;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public void setAuthor(String author) {
+        this.author = author;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 }

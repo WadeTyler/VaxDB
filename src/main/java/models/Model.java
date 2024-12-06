@@ -10,8 +10,6 @@ public class Model {
     public String name;
     public ArrayList<Attribute> attributes = new ArrayList<>();
 
-
-
     public Model(String name, ArrayList<Field> fields) {
         this.name = name;
 

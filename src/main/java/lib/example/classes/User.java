@@ -1,3 +1,5 @@
+package lib.example.classes;
+
 public class User {
 
     private String firstName;
