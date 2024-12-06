@@ -38,7 +38,6 @@ public class Table {
         this.data.remove(key);
     }
 
-
     public String selectAll() throws InvocationTargetException, NoSuchMethodException, IllegalAccessException {
         String output = "";
 
