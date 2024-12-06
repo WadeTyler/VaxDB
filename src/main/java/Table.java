@@ -17,8 +17,13 @@ public class Table {
         this.model = model;
     }
 
+    public HashMap<String, Object> selectAll() {
+        return data;
+    }
+
+
     public void addEntry(String key, Object obj) throws Exception {
-        if (!obj.getClass().getName().equals(model.name)) {
+        if (!obj.getClass().getSimpleName().equals(model.name)) {
             throw new Exception("The class " + obj.getClass().getName() + " does not match the model of the \"" + tableName + "\" table.");
         }
 
@@ -38,15 +43,6 @@ public class Table {
         this.data.remove(key);
     }
 
-    public String selectAll() throws InvocationTargetException, NoSuchMethodException, IllegalAccessException {
-        String output = "";
-
-        for (String key : data.keySet()) {
-            output += key + ": " + JSON.toJSON(data.get(key)) + "\n";
-        }
-
-        return output;
-    }
 
     public String getTableName() {
         return tableName;

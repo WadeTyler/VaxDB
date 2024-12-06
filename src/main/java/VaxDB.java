@@ -1,3 +1,8 @@
+import lib.dynamicgenerator.CompilerUtil;
+import lib.dynamicgenerator.DynamicClassGenerator;
+import lib.dynamicgenerator.DynamicClassLoader;
+import lib.example.classes.Book;
+import lib.example.classes.User;
 import lib.utils.Colors;
 import lib.utils.ErrorMessage;
 import lib.utils.JSON;
@@ -35,8 +40,9 @@ public class VaxDB {
             // Start the Database
             start();
 
-            removeEntry("history_books", "2");
-            System.out.println(tables.get("history_books").selectAll());
+            createModel(Book.class);
+            createTable("history_books", "Book");
+            createEntry("history_books", "0", new Book("Bible", "God", "History"));
 
         } catch (Exception e) {
             System.out.println(new ErrorMessage(getTimestamp() + e.getMessage()));
@@ -197,7 +203,7 @@ public class VaxDB {
                 throw new Exception("VaxDB has not been started.");
             }
 
-            String modelName = clazz.getName();
+            String modelName = clazz.getSimpleName();
 
             // Check if model exists
             if (checkModelExists(modelName)) {
@@ -230,9 +236,58 @@ public class VaxDB {
 
             // Add model to models list
             models.put(model.name, model);
+
+            // Create java class for new model
+            generateModelClass(model.name, fields);
+
+
         } catch (Exception e) {
             System.out.println(getTimestamp() + new ErrorMessage("An error occurred while creating a new model: " + e.getMessage(), Colors.ANSI_YELLOW));
         }
+    }
+
+    public static void generateModelClass(String modelName, ArrayList<Field> fields) throws Exception {
+        StringBuilder classCode = new StringBuilder();
+        classCode.append("package models;\n\n");
+
+        classCode.append("public class ").append(modelName).append(" {\n");
+
+        // Add fields and default constuctor
+        for (Field field : fields) {
+            String fieldType = field.getType().getSimpleName();
+            String fieldName = field.getName();
+            classCode.append("    private ").append(fieldType).append(" ").append(fieldName).append(";\n");
+        }
+        classCode.append("\n    public ").append(modelName).append("() {}\n\n");
+
+        // Add getter and setter methods
+        for (Field field : fields) {
+            String fieldType = field.getType().getSimpleName();
+            String fieldName = field.getName();
+            String camelCaseName = Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
+
+            // Getter
+            classCode.append("    public ").append(fieldType).append(" get").append(camelCaseName).append("() {\n")
+                    .append("        return ").append(fieldName).append(";\n")
+                    .append("    }\n\n");
+
+            // Setter
+            classCode.append("    public void set").append(camelCaseName).append("(").append(fieldType).append(" ").append(fieldName).append(") {\n")
+                    .append("        this.").append(fieldName).append(" = ").append(fieldName).append(";\n")
+                    .append("    }\n\n");
+        }
+
+        classCode.append("}");
+
+        DynamicClassGenerator.createJavaFile(modelName, classCode.toString());
+        CompilerUtil.compileJavaFile("src/main/java/models/" + modelName + ".java");
+        start();
+        DynamicClassLoader.loadClass(modelName, "src/main/java/models/");
+
+        loadModelsFile();
+        loadAllModels();
+
+        System.out.println(getTimestamp() + new SuccessMessage("Class Model Created for '" + modelName + "'."));
     }
 
     // Returns true if the model exists, false if not
@@ -258,48 +313,7 @@ public class VaxDB {
         return models.get(modelName);
     }
 
-
     // ---------------------------- TABLES ----------------------------
-
-    // Create table
-    public static void createTable(String tableName, String modelName) {
-        try {
-
-            if (!isStarted()) {
-                throw new Exception("VaxDB has not been started.");
-            }
-
-            if (checkTableFileExists(tableName)) {
-                System.out.println(getTimestamp() + new ErrorMessage("A table with the name \"" + tableName + "\" already exists. No table was created."));
-                return;
-            }
-
-            if (!checkModelExists(modelName)) {
-                System.out.println(getTimestamp() + new ErrorMessage("A model with the name \"" + modelName + "\" does not exists. No table was created."));
-                return;
-            }
-
-            // Create the file
-            File tableFile = new File("src/main/java/tables/" + tableName + ".table.txt");
-            if (tableFile.createNewFile()) {
-                System.out.println(getTimestamp() + new SuccessMessage("Table Created with the name: " + tableName));
-            } else {
-                System.out.println(getTimestamp() + new ErrorMessage("A table with the name \"" + tableName + "\" already exists. No table was created."));
-                return;
-            }
-
-            // Write to file
-            FileWriter writer = new FileWriter(tableFile, true);
-            writer.append("TABLENAME: \"" + tableName + "\"\n");
-            writer.append("MODEL: \"" + modelName + "\"");
-
-            writer.close();
-
-        } catch (Exception e) {
-            System.out.println(getTimestamp() + new ErrorMessage("An error occurred creating a table: " + e.getMessage()));
-            e.printStackTrace();
-        }
-    }
 
     // Load Tables
     private static void loadAllTables() {
@@ -331,7 +345,8 @@ public class VaxDB {
 
                 // Add data from file to table.data
                 ArrayList<Object> objects = new ArrayList<>();
-                Class<?> clazz = Class.forName(model.name);
+                Class<?> clazz = Class.forName("models." + model.name);
+
                 while (scanner.hasNextLine()) {
 
                     String line = scanner.nextLine();
@@ -354,8 +369,6 @@ public class VaxDB {
                         String setterName = "set" + Character.toUpperCase(keyField.charAt(0)) + keyField.substring(1);
                         Method setter = clazz.getMethod(setterName, String.class);
                         setter.invoke(obj, value);
-
-
                     }
 
                     table.addEntry(key, obj);
@@ -377,12 +390,84 @@ public class VaxDB {
             System.out.println(getTimestamp() + "----------------------------");
 
         } catch (Exception e) {
+            System.out.println(getTimestamp() + new ErrorMessage("An error occurred while loading all tables: " + e.getMessage()));
             throw new RuntimeException(e);
         }
     }
 
+    // Create table
+    public static void createTable(String tableName, String modelName) {
+        try {
+
+            if (!isStarted()) {
+                throw new Exception("VaxDB has not been started.");
+            }
+
+            if (checkTableExists(tableName)) {
+                System.out.println(getTimestamp() + new ErrorMessage("A table with the name \"" + tableName + "\" already exists. No table was created."));
+                return;
+            }
+
+            if (!checkModelExists(modelName)) {
+                System.out.println(getTimestamp() + new ErrorMessage("A model with the name \"" + modelName + "\" does not exists. No table was created."));
+                return;
+            }
+
+            // Create the file
+            File tableFile = new File("src/main/java/tables/" + tableName + ".table.txt");
+            if (tableFile.createNewFile()) {
+                System.out.println(getTimestamp() + new SuccessMessage("Table Created with the name: " + tableName));
+            } else {
+                System.out.println(getTimestamp() + new ErrorMessage("A table with the name \"" + tableName + "\" already exists. No table was created."));
+                return;
+            }
+
+            // Write to file
+            FileWriter writer = new FileWriter(tableFile, true);
+            writer.append("TABLENAME: \"" + tableName + "\"\n");
+            writer.append("MODEL: \"" + modelName + "\"");
+
+            writer.close();
+
+            // Add table to the table map
+            tables.put(tableName, new Table(tableName, models.get(modelName)));
+
+        } catch (Exception e) {
+            System.out.println(getTimestamp() + new ErrorMessage("An error occurred creating a table: " + e.getMessage()));
+            e.printStackTrace();
+        }
+    }
+
+    // Remove Table
+    public static void removeTable(String tableName) {
+        try {
+            if (!isStarted()) {
+                throw new Exception("VaxDB has not been started.");
+            }
+
+            if (!checkTableExists(tableName)) {
+                throw new Exception("No table with the name \"" + tableName + "\" exists.");
+            }
+
+            // Remove from tables structure
+            tables.remove(tableName);
+
+            // Delete table file
+            File file = new File(dir_tables + "/" + tableName + ".table.txt");
+
+            if (file.delete()) {
+                System.out.println(getTimestamp() + new SuccessMessage("Table with the name \"" + tableName + "\" has been removed."));
+            } else {
+                throw new Exception("Failed to delete the file for table with the name \"" + tableName + "\".");
+            }
+
+        } catch (Exception e) {
+            System.out.println(getTimestamp() + new ErrorMessage("An error occurred while removing a table: " + e.getMessage()));
+        }
+    }
+
     // Returns true if the table exists, false if not.
-    private static boolean checkTableFileExists(String tableName) {
+    private static boolean checkTableExists(String tableName) {
         for (String key : tables.keySet()) {
             if (key.equals(tableName)) return true;
         }
@@ -408,7 +493,7 @@ public class VaxDB {
             }
 
             // Check if table exists
-            if (!checkTableFileExists(tableName)) {
+            if (!checkTableExists(tableName)) {
                 throw new Exception("No table with the name \"" + tableName + "\" exists.");
             }
 
@@ -474,5 +559,21 @@ public class VaxDB {
         }
     }
 
+    // Select all entries from a table
+    public static HashMap<String, Object> selectAllEntires(String tableName) throws Error {
+        try {
+            if (!isStarted()) {
+                throw new Exception("VaxDB has not been started.");
+            }
 
+            if (!checkTableExists(tableName)) {
+                throw new Exception("No table with the name \"" + tableName + "\" exists.");
+            }
+
+            Table table = tables.get(tableName);
+            return table.selectAll();
+        } catch (Exception e) {
+            throw new Error(getTimestamp() + new ErrorMessage("An error occurred while attempting to select all entries from the table \"" + tableName + "\": " + e.getMessage()));
+        }
+    }
 }
