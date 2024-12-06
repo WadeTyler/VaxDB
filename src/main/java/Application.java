@@ -1,5 +1,6 @@
 import lib.utils.Colors;
 import lib.utils.ErrorMessage;
+import lib.utils.SuccessMessage;
 import models.Attribute;
 import models.Model;
 import org.w3c.dom.UserDataHandler;
@@ -8,14 +9,22 @@ import java.awt.*;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Scanner;
 import java.util.Stack;
 
 public class Application {
 
+    // Files
     public static File modelsFile;
+    public static ArrayList<File> tableFiles = new ArrayList<>();
+
+    // Data Structures
     public static ArrayList<Model> models = new ArrayList<>();
+    public static HashMap<String, Table> tables = new HashMap<>();      // <tableName, table>
 
     public static void main(String[] args) {
         try {
@@ -23,8 +32,7 @@ public class Application {
             loadModelsFile();
             loadAllModels();
 
-
-
+            loadAllTables();
 
         } catch (Exception e) {
             System.out.println(new ErrorMessage("An error occurred: " + e.getMessage()));
@@ -32,19 +40,26 @@ public class Application {
         }
     }
 
+    public static String getTimestamp() {
+        return LocalDateTime.now().toLocalTime().toString() + " - ";
+    }
+
+
+    // ---------------------------- MODELS ----------------------------
+
     // Load models file
     public static void loadModelsFile() {
         try {
             File modelsFileObj = new File("src/main/java/models/models.txt");
 
             if (modelsFileObj.createNewFile()) {
-                System.out.println("Models file generated: " + modelsFileObj.getName());
+                System.out.println(getTimestamp() + "Models file created: " + modelsFileObj.getName());
             } else {
-                System.out.println("Models file found.");
+                System.out.println(getTimestamp() + "Models file found.");
             }
             modelsFile = modelsFileObj;
         } catch (IOException e) {
-            System.out.println(new ErrorMessage("An error occurred while loading the models file."));
+            System.out.println(getTimestamp() + new ErrorMessage("An error occurred while loading the models file."));
         }
     }
 
@@ -52,9 +67,12 @@ public class Application {
     public static void loadAllModels() throws FileNotFoundException {
         try {
 
-            System.out.println("Loading Models...");
+            System.out.println(getTimestamp() + "Loading Models...");
             ArrayList<Model> modelsList = new ArrayList<>();
             Scanner scanner = new Scanner(modelsFile);
+
+            Long modelsFileLength = modelsFile.length();
+            int counter = 0;
 
             Stack<Character> bracketStack = new Stack<>();
             ArrayList<Attribute> attributes = new ArrayList<>();
@@ -96,6 +114,7 @@ public class Application {
                 if (bracketStack.size() == 1) {
                     if (next.contains("name")) {
                         className = scanner.next().split("\"")[1];
+                        counter++;
                     }
                 }
 
@@ -103,10 +122,12 @@ public class Application {
                 if (bracketStack.size() == 2) {
                     if (next.contains("atb_name")) {
                         atbName = scanner.next().split("\"")[1];
+                        counter++;
                     }
 
                     if (next.contains("type")) {
                         atbType = scanner.next().split("\"")[1];
+                        counter++;
                     }
 
                     if (!atbType.isEmpty() && !atbName.isEmpty()) {
@@ -116,15 +137,16 @@ public class Application {
                     }
                 }
 
+
+                counter++;
+                System.out.print("\r" + getTimestamp() + "Loading Models: " + Math.floor(((counter / (double) modelsFileLength) * 1000)) + "%     ");
             }
 
-            System.out.println("Models Done Loading.");
+            System.out.println("\n" + getTimestamp() + new SuccessMessage("Models Done Loading."));
             models = modelsList;
-            System.out.println(models);
-
 
         } catch (Exception e) {
-            System.out.println(Colors.ANSI_RED + "An error occurred loading all models: " + e.getMessage() + Colors.ANSI_RESET);
+            System.out.println(getTimestamp() + Colors.ANSI_RED + "An error occurred loading all models: " + e.getMessage() + Colors.ANSI_RESET);
             e.printStackTrace();
             throw new FileNotFoundException();
         }
@@ -168,7 +190,7 @@ public class Application {
             // Add model to models list
             models.add(model);
         } catch (Exception e) {
-            System.out.println(new ErrorMessage("An error occurred while creating a new model: " + e.getMessage(), Colors.ANSI_YELLOW));
+            System.out.println(getTimestamp() + new ErrorMessage("An error occurred while creating a new model: " + e.getMessage(), Colors.ANSI_YELLOW));
         }
     }
 
@@ -198,5 +220,120 @@ public class Application {
             return false;
         }
     }
+
+    // GetModelFromName
+    public static Model getModelFromName(String modelName) throws Exception {
+        for (Model model : models) {
+            if (model.name.equals(modelName)) {
+                return model;
+            }
+        }
+
+        throw new Exception("Error getting model from name: No model with the name \"" + modelName + "\" found.");
+    }
+
+
+    // ---------------------------- TABLES ----------------------------
+
+    // Create table
+    public static void createTable(String tableName, String modelName) {
+        try {
+            if (checkTableFileExists(tableName)) {
+                System.out.println(getTimestamp() + new ErrorMessage("A table with the name \"" + tableName + "\" already exists. No table was created."));
+                return;
+            }
+
+            if (!checkModelExists(modelName)) {
+                System.out.println(getTimestamp() + new ErrorMessage("A model with the name \"" + modelName + "\" does not exists. No table was created."));
+                return;
+            }
+
+            // Create the file
+            File tableFile = new File("src/main/java/tables/" + tableName + ".table.txt");
+            if (tableFile.createNewFile()) {
+                System.out.println("Table created: " + tableFile.getAbsolutePath());
+            } else {
+                System.out.println(getTimestamp() + new ErrorMessage("A table with the name \"" + tableName + "\" already exists. No table was created."));
+                return;
+            }
+
+            // Write to file
+            FileWriter writer = new FileWriter(tableFile, true);
+            writer.append("TABLENAME: \"" + tableName + "\"\n");
+            writer.append("MODEL: \"" + modelName + "\"");
+
+            writer.close();
+
+        } catch (Exception e) {
+            System.out.println(getTimestamp() + new ErrorMessage("An error occurred creating a table: " + e.getMessage()));
+            e.printStackTrace();
+        }
+    }
+
+
+    // Load Tables
+    public static void loadAllTables() {
+        try {
+
+            System.out.println(getTimestamp() + "Loading Tables...");
+
+            // Iterate over all table files
+            File folder = new File("src/main/java/tables");
+            File[] listOfFiles = folder.listFiles();
+
+            for (int i = 0; i < listOfFiles.length; i++) {
+
+                File currentFile = listOfFiles[i];
+                Scanner scanner = new Scanner(currentFile);
+
+                // Line 1 is tableName, Line 2 is modelName
+
+                String[] splitLine1 = scanner.nextLine().split("\"");
+                String tableName = splitLine1[splitLine1.length - 1];
+
+                String[] splitLine2  = scanner.nextLine().split("\"");
+                String modelName = splitLine2[splitLine2.length - 1];
+
+                // Get Model from Model name
+                Model model = getModelFromName(modelName);
+
+                // Create Table object
+                Table table = new Table(tableName, model);
+
+                // Add data from file to table.data
+
+                tables.put(tableName, table);
+
+                scanner.close();
+            }
+
+            System.out.println(getTimestamp() + new SuccessMessage("Tables Done Loading."));
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // Returns true if the table exists, false if not.
+    public static boolean checkTableFileExists(String tableName) {
+        for (String key : tables.keySet()) {
+            if (key.equals(tableName)) return true;
+        }
+
+        return false;
+    }
+
+
+
+
+    public static void createTable(Model model) {
+        try {
+            File folder = new File("src/main/java/tables");
+            File[] listOfFiles = folder.listFiles();
+        } catch (Exception e) {
+
+        }
+    }
+
 
 }
