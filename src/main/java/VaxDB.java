@@ -28,8 +28,8 @@ public class VaxDB {
 
     // Files
     private static File modelsFile;
-    private static String dir_tables = "src/main/java/tables";
-    private static String dir_models = "src/main/java/models/models.txt";
+    private static final String dir_tables = "src/main/java/tables";
+    private static final String dir_models = "src/main/java/models/models.txt";
 
     // Data Structures
     private static final HashMap<String, Model> models = new HashMap<>();      // <modelName, model>
@@ -40,9 +40,7 @@ public class VaxDB {
             // Start the Database
             start();
 
-            createModel(Book.class);
-            createTable("history_books", "Book");
-            createEntry("history_books", "0", new Book("Bible", "God", "History"));
+            System.out.println(selectEntry("history_books", "1"));
 
         } catch (Exception e) {
             System.out.println(new ErrorMessage(getTimestamp() + e.getMessage()));
@@ -59,9 +57,28 @@ public class VaxDB {
             loadAllTables();
 
             databaseStarted = true;
+
+            System.out.println(getTimestamp() + new SuccessMessage("VaxDB successfully loaded."));
         } catch (Exception e) {
             System.out.println(getTimestamp() + new ErrorMessage("An error occurred starting VaxDB: " + e.getMessage()));
             throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    public static void reload() {
+        try {
+            if (!isStarted()) {
+                throw new Exception("VaxDB has not been started.");
+            }
+
+            // Load Models and tables
+            loadModelsFile();
+            loadAllModels();
+            loadAllTables();
+
+            System.out.println(getTimestamp() + new SuccessMessage("VaxDB successfully reloaded."));
+        } catch (Exception e) {
+            System.out.println(getTimestamp() + new ErrorMessage("An error occurred while reloading VaxDB: " + e.getMessage()));
         }
     }
 
@@ -69,7 +86,6 @@ public class VaxDB {
     public static boolean isStarted() {
         return databaseStarted;
     }
-
 
     private static String getTimestamp() {
         return LocalDateTime.now().toLocalTime().toString() + " - ";
@@ -195,8 +211,7 @@ public class VaxDB {
         }
     }
 
-    // Creates a new model using the provided class structure.
-    // Only fields with getter methods following proper camel case will be created.
+    // Creates a new model using the provided class structure. Only fields with getter methods following proper camel case will be created.
     public static void createModel(Class<?> clazz) throws Exception {
         try {
             if (!isStarted()) {
@@ -246,6 +261,7 @@ public class VaxDB {
         }
     }
 
+    // Create and generate a new .java class file for the model provided.
     public static void generateModelClass(String modelName, ArrayList<Field> fields) throws Exception {
         StringBuilder classCode = new StringBuilder();
         classCode.append("package models;\n\n");
@@ -284,8 +300,7 @@ public class VaxDB {
         start();
         DynamicClassLoader.loadClass(modelName, "src/main/java/models/");
 
-        loadModelsFile();
-        loadAllModels();
+        reload();
 
         System.out.println(getTimestamp() + new SuccessMessage("Class Model Created for '" + modelName + "'."));
     }
@@ -528,7 +543,6 @@ public class VaxDB {
 
             // Remove from table structure
             Table table = tables.get(tableName);
-
             if (table == null) {
                 throw new Exception("No table with the name \"" + tableName + "\" exists.");
             }
@@ -560,7 +574,7 @@ public class VaxDB {
     }
 
     // Select all entries from a table
-    public static HashMap<String, Object> selectAllEntires(String tableName) throws Error {
+    public static ArrayList<String> selectAllEntires(String tableName) throws Error {
         try {
             if (!isStarted()) {
                 throw new Exception("VaxDB has not been started.");
@@ -576,4 +590,31 @@ public class VaxDB {
             throw new Error(getTimestamp() + new ErrorMessage("An error occurred while attempting to select all entries from the table \"" + tableName + "\": " + e.getMessage()));
         }
     }
+
+    // Select entry from key
+    public static String selectEntry(String tableName, String key) throws Exception {
+        try {
+            if (!isStarted()) {
+                throw new Exception("VaxDB has not been started.");
+            }
+
+            // Check key value
+            if (key.isEmpty()) {
+                throw new Exception("Empty key value not allowed.");
+            }
+
+            // Check if table exists
+            if (!checkTableExists(tableName)) {
+                throw new Exception("No table with the name \"" + tableName + "\" exists.");
+            }
+
+            Table table = tables.get(tableName);
+            return table.select(key);
+
+        } catch (Exception e) {
+            System.out.println(getTimestamp() + new ErrorMessage("An exception occurred while selecting an entry: " + e.getMessage()));
+            return null;
+        }
+    }
+
 }

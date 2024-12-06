@@ -2,6 +2,7 @@ import lib.utils.JSON;
 import models.Model;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class Table {
@@ -17,10 +18,26 @@ public class Table {
         this.model = model;
     }
 
-    public HashMap<String, Object> selectAll() {
-        return data;
+    public ArrayList<String> selectAll() throws InvocationTargetException, NoSuchMethodException, IllegalAccessException {
+        ArrayList<String> list = new ArrayList<>();
+
+
+        for (String key : data.keySet()) {
+            String str = key + ": ";
+            str += JSON.toJSON(data.get(key));
+            str += "\n";
+            list.add(str);
+        }
+        return list;
     }
 
+    public String select(String key) throws Exception {
+        if (data.get(key) == null) {
+            throw new Exception("No entry with the key '" + key + "' found.");
+        }
+
+        return key + ": " + JSON.toJSON(data.get(key));
+    }
 
     public void addEntry(String key, Object obj) throws Exception {
         if (!obj.getClass().getSimpleName().equals(model.name)) {
