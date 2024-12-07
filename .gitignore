@@ -37,6 +37,3 @@ build/
 ### Mac OS ###
 .DS_Store
 
-### Data Files ###
-models/*
-tables/*
