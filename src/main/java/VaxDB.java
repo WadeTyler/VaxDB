@@ -2,13 +2,10 @@ import lib.dynamicgenerator.CompilerUtil;
 import lib.dynamicgenerator.DynamicClassGenerator;
 import lib.dynamicgenerator.DynamicClassLoader;
 import lib.example.classes.Book;
-import lib.example.classes.User;
 import lib.utils.Colors;
 import lib.utils.ErrorMessage;
 import lib.utils.JSON;
 import lib.utils.SuccessMessage;
-import models.Attribute;
-import models.Model;
 
 import java.io.*;
 import java.lang.reflect.Field;
@@ -29,7 +26,8 @@ public class VaxDB {
     // Files
     private static File modelsFile;
     private static final String dir_tables = "src/main/java/tables";
-    private static final String dir_models = "src/main/java/models/models.txt";
+    private static final String dir_modelsTxt = "src/main/java/models/models.txt";
+    private static final String dir_models = "src/main/java/models/";
 
     // Data Structures
     private static final HashMap<String, Model> models = new HashMap<>();      // <modelName, model>
@@ -40,7 +38,10 @@ public class VaxDB {
             // Start the Database
             start();
 
-            System.out.println(selectEntry("history_books", "1"));
+            createModel(Book.class);
+            createTable("history_books", "Book");
+            createEntry("history_books", "1", new Book("Bible", "God", "History"));
+            removeModel("Book");
 
         } catch (Exception e) {
             System.out.println(new ErrorMessage(getTimestamp() + e.getMessage()));
@@ -97,7 +98,7 @@ public class VaxDB {
     // Load models file
     private static void loadModelsFile() {
         try {
-            File modelsFileObj = new File(dir_models);
+            File modelsFileObj = new File(dir_modelsTxt);
 
             if (modelsFileObj.createNewFile()) {
                 System.out.println(getTimestamp() + "Models file created: " + modelsFileObj.getName());
@@ -106,7 +107,7 @@ public class VaxDB {
             }
             modelsFile = modelsFileObj;
         } catch (IOException e) {
-            System.out.println(getTimestamp() + new ErrorMessage("An error occurred while loading the models file."));
+            throw new Error("An error occurred while loading the models file: " + e.getMessage());
         }
     }
 
@@ -241,10 +242,7 @@ public class VaxDB {
             FileWriter writer = new FileWriter(modelsFile, true);
             String writeStr = "";
 
-            if (modelsFile.length() != 0) {
-                writeStr += ", ";
-            }
-            writeStr += model.toJSON();
+            writeStr += model.toJSON() + "\n";
 
             writer.write(writeStr);
             writer.close();
@@ -260,6 +258,66 @@ public class VaxDB {
             System.out.println(getTimestamp() + new ErrorMessage("An error occurred while creating a new model: " + e.getMessage(), Colors.ANSI_YELLOW));
         }
     }
+
+    // remove a model
+    public static void removeModel(String modelName) {
+        try {
+            // Check if started
+            if (!isStarted()) {
+                throw new Exception("VaxDB has not been started.");
+            }
+
+            // Check if model exists
+            if (models.get(modelName) == null) {
+                throw new Exception("Model '" + modelName + "' not found.");
+            }
+
+            Model model = models.get(modelName);
+
+            // Check if any tables currently use the model.
+            for (String key : tables.keySet()) {
+                Table t = tables.get(key);
+                if (t.getModel() == model) throw new Exception("Cannot remove model. '" + t.getTableName() + "' uses the model '" + modelName + "'.");
+            }
+
+            // Remove model
+            models.remove(modelName);
+
+            // Rewrite file without the model
+            Path path = Paths.get(dir_modelsTxt);
+
+            BufferedReader reader = new BufferedReader(new FileReader(dir_modelsTxt));
+            StringBuilder newFileContent = new StringBuilder();
+
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                String mName = line.split(": ")[1].trim().split("\"")[1];
+                if (mName.equals(modelName)) continue;
+                newFileContent.append(line).append(System.lineSeparator());
+            }
+            reader.close();
+
+            Files.write(path, newFileContent.toString().getBytes());
+
+            // Remove model.class file
+            File modelClassFile = new File(dir_models + modelName + ".java");
+            if (modelClassFile.delete()) {
+                // Do nothing
+            } else {
+                throw new Exception("Failed to remove the Model class.");
+            }
+
+            System.out.println(getTimestamp() + new SuccessMessage("Model '" + modelName + "' removed."));
+
+
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (Exception e) {
+            System.out.println(getTimestamp() + new ErrorMessage("An exception occurred while removing a model: " + e.getMessage()));
+        }
+    }
+
 
     // Create and generate a new .java class file for the model provided.
     public static void generateModelClass(String modelName, ArrayList<Field> fields) throws Exception {
@@ -616,5 +674,4 @@ public class VaxDB {
             return null;
         }
     }
-
 }

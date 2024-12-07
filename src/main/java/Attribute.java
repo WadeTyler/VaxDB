@@ -1,5 +1,3 @@
-package models;
-
 public class Attribute {
     public String atb_name;
     public String type;

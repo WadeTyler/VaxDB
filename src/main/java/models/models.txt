@@ -1,0 +1,1 @@
+{"name": "Book", "attributes": [{"atb_name": "title", "type": "String" },{"atb_name": "author", "type": "String" },{"atb_name": "category", "type": "String" }]}
