@@ -112,6 +112,11 @@ public class CLI {
                 }
                 handleRemoveModel(splitInput);
                 break;
+
+            case "table":
+                handleRemoveTable(splitInput);
+                break;
+
             default:
                 System.out.println("Unknown input: " + splitInput[1]);
         }
@@ -301,6 +306,12 @@ public class CLI {
     }
 
     private static void handleRemoveModel(String[] splitInput) {
+
+        if (splitInput.length < 3) {
+            System.out.println("Expected 3 arguments: remove model \"model_name\";");
+            return;
+        }
+
         if (!isQuoted(splitInput[2])) {
             outputUnexpectedInput(splitInput[2], "\"table_name\"");
             return;
@@ -310,6 +321,24 @@ public class CLI {
         VaxDB.removeModel(tableName);
     }
 
+    private static void handleRemoveTable(String[] splitInput) {
+
+        if (splitInput.length < 3) {
+            System.out.println("Expected 3 arguments: remove table \"table_name\";");
+            return;
+        }
+
+        if (!isQuoted(splitInput[2])) {
+            outputUnexpectedInput(splitInput[2], "\"table_name\"");
+            return;
+        }
+
+        String tableName = splitInput[2].substring(1, splitInput[2].length() - 1);
+        VaxDB.removeTable(tableName);
+    }
+
+
+    // ----------------- UTIL -----------------
 
     private static boolean isQuoted(String str) {
         return str.charAt(0) == '\"' && str.charAt(str.length() - 1) == '\"';
