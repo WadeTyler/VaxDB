@@ -397,9 +397,7 @@ public class VaxDB {
             File folder = new File(dir_tables);
             File[] listOfFiles = folder.listFiles();
 
-            for (int i = 0; i < listOfFiles.length; i++) {
-
-                File currentFile = listOfFiles[i];
+            for (File currentFile : listOfFiles) {
 
                 if (currentFile.getName().equals(".gitignore")) continue;
                 Scanner scanner = new Scanner(currentFile);
@@ -409,7 +407,7 @@ public class VaxDB {
                 String[] splitLine1 = scanner.nextLine().split("\"");
                 String tableName = splitLine1[splitLine1.length - 1];
 
-                String[] splitLine2  = scanner.nextLine().split("\"");
+                String[] splitLine2 = scanner.nextLine().split("\"");
                 String modelName = splitLine2[splitLine2.length - 1];
 
                 // Get Model from Model name
