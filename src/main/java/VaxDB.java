@@ -2,6 +2,7 @@ import lib.dynamicgenerator.CompilerUtil;
 import lib.dynamicgenerator.DynamicClassGenerator;
 import lib.dynamicgenerator.DynamicClassLoader;
 import lib.example.classes.Book;
+import lib.example.classes.User;
 import lib.utils.Colors;
 import lib.utils.ErrorMessage;
 import lib.utils.JSON;
@@ -37,6 +38,14 @@ public class VaxDB {
         try {
             // Start the Database
             start();
+
+            createModel(Book.class);
+            createModel(User.class);
+
+            createTable("students", "User");
+
+            createEntry("students", "0", new User("Tim", "Tones", "timtones@gmail.com"));
+
             CLI.startCLI();
 
         } catch (Exception e) {
@@ -88,6 +97,54 @@ public class VaxDB {
         return LocalDateTime.now().toLocalTime().toString() + " - ";
     }
 
+    // ---------------------------- MODELS AND TABLES ----------------------------
+
+    // Wipe Models, and Tables
+    public static void resetDB() {
+        try {
+
+            // Delete table files
+            File tablesFolder = new File(dir_tables);
+            File[] tablesFiles = tablesFolder.listFiles();
+
+            // Delete tablesFiles
+            for (File f : tablesFiles) {
+                if (!f.getName().equals(".gitignore")) {
+                    if (f.delete()) {
+                        // Do nothing
+                    } else {
+                        throw new Exception("Failed to delete file: " + f.getName());
+                    }
+                }
+            }
+
+            // Delete model files
+            File modelsFolder = new File(dir_models);
+            File[] modelsFiles = modelsFolder.listFiles();
+
+            // Delete modelsFiles
+            for (File f : modelsFiles) {
+                if (!f.getName().equals(".gitignore")) {
+                    if (f.delete()) {
+                        // Do nothing
+                    } else {
+                        throw new Exception("Failed to delete file: " + f.getName());
+                    }
+                }
+            }
+
+            // Wipe data structures
+            models.clear();
+            tables.clear();
+
+            System.out.println(getTimestamp() + new SuccessMessage("VaxDB successfully reset. Reloading..."));
+
+            // Reload
+            reload();
+        } catch (Exception e) {
+            System.out.println(getTimestamp() + "An exception occurred while resetting VaxDB: " + e.getMessage());
+        }
+    }
 
     // ---------------------------- MODELS ----------------------------
 
@@ -249,9 +306,9 @@ public class VaxDB {
             // Create java class for new model
             generateModelClass(model.name, fields);
 
-
+            System.out.println(getTimestamp() + "\"" + modelName + "\" model created.");
         } catch (Exception e) {
-            System.out.println(getTimestamp() + new ErrorMessage("An error occurred while creating a new model: " + e.getMessage(), Colors.ANSI_YELLOW));
+            System.out.println(getTimestamp() + new ErrorMessage("An exception occurred while creating a new model: " + e.getMessage(), Colors.ANSI_YELLOW));
         }
     }
 
@@ -313,7 +370,6 @@ public class VaxDB {
             System.out.println(getTimestamp() + new ErrorMessage("An exception occurred while removing a model: " + e.getMessage()));
         }
     }
-
 
     // Create and generate a new .java class file for the model provided.
     public static void generateModelClass(String modelName, ArrayList<Field> fields) throws Exception {

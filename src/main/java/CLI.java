@@ -42,8 +42,14 @@ public class CLI {
                 case "create":
                     parseCreateCommand(splitInput);
                     break;
+                case "remove":
+                    parseRemoveCommand(splitInput);
+                    break;
                 case "entry":
                     parseEntryCommand(splitInput);
+                    break;
+                case "reset":
+                    handleReset();
                     break;
                 default:
                     System.out.println("Unknown command: '" + splitInput[0] + "'.");
@@ -95,6 +101,22 @@ public class CLI {
                 break;
         }
     }
+
+    private static void parseRemoveCommand(String[] splitInput) {
+        switch (splitInput[1].toLowerCase()) {
+            case "model":
+
+                if (splitInput.length < 3) {
+                    System.out.println("Expected 3 arguments: remove model \"model_name\";");
+                    return;
+                }
+                handleRemoveModel(splitInput);
+                break;
+            default:
+                System.out.println("Unknown input: " + splitInput[1]);
+        }
+    }
+
 
     private static void parseEntryCommand(String[] splitInput) throws Exception {
 
@@ -234,6 +256,29 @@ public class CLI {
 
     private static void createTable(String tableName, String modelName) {
         VaxDB.createTable(tableName, modelName);
+    }
+
+    private static void handleReset() {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.print("You are about to reset VaxDB, deleting all of your tables and models. [y/n]: ");
+        String input = scanner.next();
+        if (!input.equalsIgnoreCase("y")) {
+            System.out.println("\nReset cancelled.");
+            return;
+        }
+
+        VaxDB.resetDB();
+    }
+
+    private static void handleRemoveModel(String[] splitInput) {
+        if (!isQuoted(splitInput[2])) {
+            outputUnexpectedInput(splitInput[2], "\"table_name\"");
+            return;
+        }
+
+        String tableName = splitInput[2].substring(1, splitInput[2].length() - 1);
+        VaxDB.removeModel(tableName);
     }
 
 
