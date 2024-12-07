@@ -30,18 +30,14 @@ public class VaxDB {
     private static final String dir_models = "src/main/java/models/";
 
     // Data Structures
-    private static final HashMap<String, Model> models = new HashMap<>();      // <modelName, model>
-    private static final HashMap<String, Table> tables = new HashMap<>();      // <tableName, table>
+    public static final HashMap<String, Model> models = new HashMap<>();      // <modelName, model>
+    public static final HashMap<String, Table> tables = new HashMap<>();      // <tableName, table>
 
     public static void main(String[] args) {
         try {
             // Start the Database
             start();
-
-            createModel(Book.class);
-            createTable("history_books", "Book");
-            createEntry("history_books", "1", new Book("Bible", "God", "History"));
-            removeModel("Book");
+            CLI.startCLI();
 
         } catch (Exception e) {
             System.out.println(new ErrorMessage(getTimestamp() + e.getMessage()));
