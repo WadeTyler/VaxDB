@@ -139,7 +139,6 @@ public class CLI {
                     return;
                 }
 
-
                 // splitInput[4] = "key"
                 if (!isQuoted(splitInput[4])) {
                     outputUnexpectedInput(splitInput[4], "\"key\"");
