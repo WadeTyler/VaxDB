@@ -8,9 +8,12 @@ public class DynamicClassGenerator {
         String fileName = "src/main/java/models/" + className + ".java";
         try {
             FileWriter writer = new FileWriter(fileName);
+
             writer.write(code);
-            System.out.println("Generated Java file: " + fileName);
+            writer.flush();
             writer.close();
+
+            System.out.println("Generated Java file: " + fileName);
         } catch (Exception e) {
             throw new Exception("Error while creating java file: " + e.getMessage());
         }

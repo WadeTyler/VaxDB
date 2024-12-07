@@ -39,12 +39,10 @@ public class VaxDB {
             // Start the Database
             start();
 
+
             createModel(Book.class);
             createModel(User.class);
 
-            createTable("students", "User");
-
-            createEntry("students", "0", new User("Tim", "Tones", "timtones@gmail.com"));
 
             CLI.startCLI();
 
@@ -407,7 +405,6 @@ public class VaxDB {
 
         DynamicClassGenerator.createJavaFile(modelName, classCode.toString());
         CompilerUtil.compileJavaFile("src/main/java/models/" + modelName + ".java");
-        start();
         DynamicClassLoader.loadClass(modelName, "src/main/java/models/");
 
         reload();

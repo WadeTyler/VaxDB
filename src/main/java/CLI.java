@@ -188,17 +188,15 @@ public class CLI {
                 // Set the values in the object
                 for (String attribute : attributes) {
 
-                    System.out.println(attribute);
                     String atb = attribute.split(":")[0];
                     String val = attribute.split(":")[1];
-
-                    System.out.println(atb);
-                    System.out.println(val);
 
                     if (!isQuoted(val)) {
                         outputUnexpectedInput(val, "\"val\" enclosed in quotes.");
                         return;
                     }
+
+                    val = val.substring(1, val.length() - 1);
 
                     String setterName = "set" + Character.toUpperCase(atb.charAt(0)) + atb.substring(1);
 
@@ -246,6 +244,37 @@ public class CLI {
                 }
 
                 else System.out.println(VaxDB.selectEntry(table_name, entry_key));;
+                break;
+
+            case "remove":
+
+                if (splitInput.length < 5) {
+                    System.out.println("Invalid input. Expected 5 arguments: entry remove \"table_name\" -> \"key\";");
+                    return;
+                }
+
+                if (!isQuoted(splitInput[2])) {
+                    outputUnexpectedInput(splitInput[2], "\"table_name\"");
+                    return;
+                }
+
+                String table_name_remove = splitInput[2].substring(1, splitInput[2].length() - 1);
+
+                if (!isNextKey(splitInput[3])) {
+                    outputUnexpectedInput(splitInput[2], "->");
+                    return;
+                }
+
+                if (!isQuoted(splitInput[4])) {
+                    outputUnexpectedInput(splitInput[4], "\"key\"");
+                    return;
+                }
+
+                String key_remove = splitInput[4].substring(1, splitInput[4].length() - 1);
+
+
+                VaxDB.removeEntry(table_name_remove, key_remove);
+
 
                 break;
             default:
