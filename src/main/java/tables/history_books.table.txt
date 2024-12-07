@@ -1,3 +1,0 @@
-TABLENAME: "history_books"
-MODEL: "Book"
-1: {"title": "Bible", "author": "God", "category": "History"},

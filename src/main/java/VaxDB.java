@@ -400,6 +400,8 @@ public class VaxDB {
             for (int i = 0; i < listOfFiles.length; i++) {
 
                 File currentFile = listOfFiles[i];
+
+                if (currentFile.getName().equals(".gitignore")) continue;
                 Scanner scanner = new Scanner(currentFile);
 
                 // Line 1 is tableName, Line 2 is modelName
